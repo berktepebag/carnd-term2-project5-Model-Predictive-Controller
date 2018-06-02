@@ -25,6 +25,14 @@ In the main.cpp:
     return v,cte,epsi;}
   ```
 
+3. Feed the calculated state (state = 0,0,0,v,cte,epsi) into mpc.Solve with coeffs.
+
+4. mpc.Solve calculates states of next N steps according to 3rd order polynomial. According to calculated total error
+returns steering angle and acceleration. And starts again after each iteration.
+
+<img width="800" alt="N = 20 dt = 0.2" src="/imgs/MPC.JPG">
+
+
 ### Timestep Length and Elapsed Duration (N & dt) The reasoning behind the chosen N (timestep length) and dt (elapsed duration between timesteps) values:
 
 T should be as large as possible, while dt should be as small as possible. In the case of driving a car, T should be a few seconds, at most.(Lesson 19.5)
@@ -60,3 +68,4 @@ In main.cpp I have calculated average speed of the car for 1 turn around the tra
 | 20 | 0.20 | 45.037 | *First turn, Finished without problem* |
 | 20 | 0.20 | 48.088 | *Second turn, Finished without problem* |
 
+<img width="800" alt="N = 20 dt = 0.2" src="/imgs/MPC2.JPG">
