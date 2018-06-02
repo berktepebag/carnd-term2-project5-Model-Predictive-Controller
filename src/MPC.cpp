@@ -6,13 +6,9 @@
 using CppAD::AD;
 using namespace std;
 
-//constexpr double pi() { return M_PI; }
-//double deg2rad(double x) { return x * pi() / 180; }
-//double rad2deg(double x) { return x * 180 / pi(); }
-
 // TODO: Set the timestep length and duration
-size_t N = 10;
-double dt = 0.2;
+size_t N = 20;
+double dt = 0.20;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -65,11 +61,13 @@ class FG_eval {
     {
       fg[0] += 5*CppAD::pow(vars[delta_start+i],2);
       fg[0] += 5*CppAD::pow(vars[a_start+i],2);
-    }
-    //Smoother drive
+    }    
     for (int i = 0; i < N-2; i++)
     {
-      fg[0] += 200*CppAD::pow(vars[delta_start+i+1]-vars[delta_start+i],2);
+      //Higher multiplier helps smoother steering transitions by looking at square of 
+      //the difference of delta between t+1 & t.
+      //Lesson 19.10 Tuning MPC
+      fg[0] += 500*CppAD::pow(vars[delta_start+i+1]-vars[delta_start+i],2);
       fg[0] += 10*CppAD::pow(vars[a_start+i+1]-vars[delta_start+i],2);
     }
 
@@ -82,6 +80,7 @@ class FG_eval {
     fg[1 + cte_start] = vars[cte_start];
     fg[1 + epsi_start] = vars[epsi_start];
 
+    //Rest of the Constraints
     for (int i = 0; i < N-1; i++)
     {
       AD<double> x1 = vars[x_start+i+1];
@@ -101,12 +100,10 @@ class FG_eval {
       AD<double> delta0 = vars[delta_start+i];
       AD<double> a0 = vars[a_start+i];
 
-      //Lineer Reference Line
-      //AD<double> f0 = coeffs[0] + coeffs[1] * x0;
-        AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0*x0 + coeffs[3] * x0*x0*x0;
-      //Arctan of the Derivative of the Lineer Reference Line f0(x)' = coeffs[1], returns angle of the line
-      //AD<double> psides0 = CppAD::atan(coeffs[1]);
-        AD<double> psides0 = CppAD::atan(3*coeffs[3] * x0*x0 + 2*coeffs[2] * x0 + coeffs[1]);
+      //Reference Path     
+      AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0*x0 + coeffs[3] * x0*x0*x0;
+      //Derivative of f0 = 3*x0^2*coeffs[3] + 2*x0*coeffs[2]+coeffs[1] 
+      AD<double> psides0 = CppAD::atan(3*coeffs[3] * x0*x0 + 2*coeffs[2] * x0 + coeffs[1]);
 
       fg[2 + x_start+i] = x1 - (x0+v0*CppAD::cos(psi0)*dt);
       fg[2 + y_start+i] = y1 - (y0+v0*CppAD::sin(psi0)*dt);

@@ -65,6 +65,32 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
   return result;
 }
 
+
+int counter = 0;
+double total_speed = 0;
+
+int latency = 100; //milisecond
+double Lf = 2.67;
+
+void print_stars(){
+   cout << "**********************" << endl;
+   cout << "**********************" << endl;
+ }
+
+double calculate_latency_state(double x,double y, double psi, double v
+  , double steer_value, double throttle_value, Eigen::VectorXd coeffs, double latency){
+
+  double dt = latency/1000; //milisecond to second
+
+  x += x + v*cos(psi)*dt;  
+  psi -= steer_value/Lf*dt;
+  v += throttle_value*dt;  
+  double epsi = psi - atan(coeffs[1] + 2 * x * coeffs[2] + 3 * coeffs[3] * pow(x,2));
+  double cte = polyeval(coeffs,0) + v*sin(epsi)*dt;
+
+  return v,cte,epsi;
+}
+
 int main() {
   uWS::Hub h;
 
@@ -85,18 +111,33 @@ int main() {
         string event = j[0].get<string>();
         if (event == "telemetry") {
           // j[1] is the data JSON object
+
+          //ptsx (Array) - The global x positions of the waypoints.
+          //ptsy (Array) - The global y positions of the waypoints. 
+              //This corresponds to the z coordinate in Unity since y is the up-down direction.
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
+          //x (float) - The global x position of the vehicle.
+          //y (float) - The global y position of the vehicle.
           double px = j[1]["x"];
           double py = j[1]["y"];
+          //psi (float) - The orientation of the vehicle in radians converted 
+            //from the Unity format to the standard format expected in most mathemetical functions (more details below).
+          //psi_unity (float) - The orientation of the vehicle in radians. 
+            //This is an orientation commonly used in navigation.
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+        //Controlling average speed at the end of each turn. Faster better.
+          total_speed += v;
+          counter++;
+          print_stars();
+          cout << "Average speed: " << total_speed/counter << endl;
+          print_stars();            
+          
           /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
+          * TODO: Calculate steering angle and throttle using MPC.          
+          * Both are in between [-1, 1].          
           */    
           for (int i = 0; i < ptsx.size(); i++)
           {
@@ -110,24 +151,35 @@ int main() {
 
           double* ptrx = &ptsx[0];
           Eigen::Map<Eigen::VectorXd> ptsx_transform(ptrx,6);
+          //print_stars();
+          //cout << "ptsx_transform: " << ptsx_transform << endl;
 
           double* ptry = &ptsy[0];
           Eigen::Map<Eigen::VectorXd> ptsy_transform(ptry,6);
+          //print_stars();
+          //cout << "ptsy_transform: " << ptsy_transform << endl;
 
           auto coeffs = polyfit(ptsx_transform,ptsy_transform,3);
 
-           // x=0 => a*(0)^n+b*(0)^n-1+c => cte => y = c
+          /*
+          // x=0 => a*(0)^n+b*(0)^n-1+c => cte => y = c
           double cte = polyeval(coeffs,0);
-           //epsi
-          double epsi = psi - atan(coeffs[1] + 2 * px * coeffs[2] + 3 * coeffs[3] * pow(px,2));
-
+          //epsi => Derivative of f0 = 3*x0^2*coeffs[3] + 2*x0*coeffs[2]+coeffs[1] 
+          double epsi = psi - atan(coeffs[1] + 2 * px * coeffs[2] + 3 * coeffs[3] * pow(px,2));*/
 
           double steer_value = j[1]["steering_angle"];
           double throttle_value = j[1]["throttle"];
 
+          double cte,epsi;
+
+          //Add latency to current state          
+          v, cte, epsi = calculate_latency_state(px,py,psi,v,steer_value,throttle_value, coeffs, latency);
+
+
           Eigen::VectorXd state(6);
           state << 0,0,0,v,cte,epsi;
 
+          //state = x0
           auto vars = mpc.Solve(state,coeffs);
 
           vector<double> next_x_vals;
@@ -136,6 +188,8 @@ int main() {
           double poly_inc = 2.5;
           int num_points = 25;
 
+          //x = 1 meter in simulator, if we feed in 1 meter for each point we can draw the track
+          //Used for drawing "Yellow Line" in the simulator.
           for (int i = 1; i < num_points; i++)
           {
             next_x_vals.push_back(poly_inc*i);
@@ -156,22 +210,11 @@ int main() {
             }
           }
 
-          double Lf = 2.67;
-
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
           msgJson["steering_angle"] = vars[0]/(deg2rad(25)*Lf);
           msgJson["throttle"] = vars[1];
-
-          /*
-          cout << "**********************" << endl;
-          cout << "**********************" << endl;
-          cout << "steering_angle" << vars[0]/(deg2rad(25)*Lf);
-          cout << "throttle: " << vars[1] << endl;
-          cout << "**********************" << endl;
-          cout << "**********************" << endl;*/
-
 
           //Display the MPC predicted trajectory 
           //vector<double> mpc_x_vals;
@@ -205,7 +248,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(latency));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
