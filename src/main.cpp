@@ -20,13 +20,13 @@ double rad2deg(double x) { return x * 180 / pi(); }
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
-string hasData(string s) {
+std::string hasData(std::string s) {
   auto found_null = s.find("null");
   auto b1 = s.find_first_of("[");
   auto b2 = s.rfind("}]");
-  if (found_null != string::npos) {
+  if (found_null != std::string::npos) {
     return "";
-  } else if (b1 != string::npos && b2 != string::npos) {
+  } else if (b1 != std::string::npos && b2 != std::string::npos) {
     return s.substr(b1, b2 - b1 + 2);
   }
   return "";
@@ -73,8 +73,8 @@ int latency = 100; //milisecond
 double Lf = 2.67;
 
 void print_stars(){
-   cout << "**********************" << endl;
-   cout << "**********************" << endl;
+   std::cout << "**********************" << std::endl;
+   std::cout << "**********************" << std::endl;
  }
 
 double calculate_latency_state(double x,double y, double psi, double v
@@ -102,21 +102,21 @@ int main() {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
-    string sdata = string(data).substr(0, length);
-    cout << sdata << endl;
+    std::string sdata = std::string(data).substr(0, length);
+    std::cout << sdata <<std::endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
-      string s = hasData(sdata);
+      std::string s = hasData(sdata);
       if (s != "") {
         auto j = json::parse(s);
-        string event = j[0].get<string>();
+        std::string event = j[0].get<std::string>();
         if (event == "telemetry") {
           // j[1] is the data JSON object
 
           //ptsx (Array) - The global x positions of the waypoints.
           //ptsy (Array) - The global y positions of the waypoints. 
               //This corresponds to the z coordinate in Unity since y is the up-down direction.
-          vector<double> ptsx = j[1]["ptsx"];
-          vector<double> ptsy = j[1]["ptsy"];
+          std::vector<double> ptsx = j[1]["ptsx"];
+          std::vector<double> ptsy = j[1]["ptsy"];
           //x (float) - The global x position of the vehicle.
           //y (float) - The global y position of the vehicle.
           double px = j[1]["x"];
@@ -132,7 +132,7 @@ int main() {
           total_speed += v;
           counter++;
           print_stars();
-          cout << "Average speed: " << total_speed/counter << endl;
+          std::cout << "Average speed: " << total_speed/counter << std::endl;
           print_stars();            
           
           /*
@@ -182,8 +182,8 @@ int main() {
           //state = x0
           auto vars = mpc.Solve(state,coeffs);
 
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
+          std::vector<double> next_x_vals;
+          std::vector<double> next_y_vals;
 
           double poly_inc = 2.5;
           int num_points = 25;
@@ -196,8 +196,8 @@ int main() {
             next_y_vals.push_back(polyeval(coeffs,poly_inc*i));
           }
 
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
+          std::vector<double> mpc_x_vals;
+          std::vector<double> mpc_y_vals;
 
           for (int i = 2; i < vars.size(); i++)
           {
@@ -248,7 +248,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(latency));
+          std::this_thread::sleep_for(std::chrono::milliseconds(latency));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
